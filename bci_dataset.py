@@ -25,7 +25,13 @@ class BCIDataset(Dataset):
     def format_dataset(self, dataset):
         inputs = []
         targets = []
-        for i, data in enumerate(dataset[0]):
+        for i in range(len(dataset[0])):
+            for j in range(len(dataset[0][i])):
+                self.filter_data(dataset[0][i][j])
+            
+            data = np.array(dataset[0][i])
+            data = np.mean(data, axis=0)
+            
             length = data.shape[1]
             excess = length % self.data_length
             
