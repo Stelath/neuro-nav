@@ -1,7 +1,8 @@
 import os
 import numpy as np
 
-from brainflow.data_filter import DataFilter, AggOperations
+from brainflow.board_shim import BoardShim, BoardIds
+from brainflow.data_filter import DataFilter, FilterTypes, NoiseTypes
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -14,6 +15,12 @@ class BCIDataset(Dataset):
         
         self.dataset = np.load(np_file, allow_pickle=True)
         self.inputs, self.targets = self.format_dataset(self.dataset)
+
+    def filter_data(data):
+        sr = BoardShim.get_sampling_rate(BoardIds.CROWN_BOARD.value)
+
+        DataFilter.perform_bandpass(data, sr, 5.0, 50.0, 4,FilterTypes.BUTTERWORTH.value, 0)
+        DataFilter.remove_environmental_noise(data, sr, NoiseTypes.SIXTY.value) # Americas wires run at 60Hz
 
     def format_dataset(self, dataset):
         inputs = []
