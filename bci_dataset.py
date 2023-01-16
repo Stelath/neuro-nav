@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 from brainflow.board_shim import BoardShim, BoardIds
-from brainflow.data_filter import DataFilter, FilterTypes, NoiseTypes
+from brainflow.data_filter import DataFilter, FilterTypes, AggOperations, NoiseTypes, WindowOperations
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -16,34 +16,30 @@ class BCIDataset(Dataset):
         self.dataset = np.load(np_file, allow_pickle=True)
         self.inputs, self.targets = self.format_dataset(self.dataset)
 
-    def filter_data(data):
+    def filter_data(self, data):
         sr = BoardShim.get_sampling_rate(BoardIds.CROWN_BOARD.value)
 
         DataFilter.perform_bandpass(data, sr, 5.0, 50.0, 4,FilterTypes.BUTTERWORTH.value, 0)
         DataFilter.remove_environmental_noise(data, sr, NoiseTypes.SIXTY.value) # Americas wires run at 60Hz
 
     def format_dataset(self, dataset):
+        hz = 256
         inputs = []
         targets = []
         for i in range(len(dataset[0])):
+            session = np.empty((8, len(dataset[0][i][0]) // 2))
             for j in range(len(dataset[0][i])):
                 self.filter_data(dataset[0][i][j])
+                session[j] = DataFilter.perform_downsampling(dataset[0][i][j], 2, AggOperations.MEAN.value)
             
-            data = np.array(dataset[0][i])
-            data = np.mean(data, axis=0)
+            for j in range(len(session[0]) - hz):
+                data = np.array(session[:, j:j + hz])
+                
+                inp = np.empty((8, hz // 4))
+                for k, channel in enumerate(data):
+                    inp[k] = DataFilter.perform_fft(channel[: hz // 2], WindowOperations.NO_WINDOW.value)[:hz // 4]
             
-            length = data.shape[1]
-            excess = length % self.data_length
-            
-            # Cut off excess data
-            if excess != 0:
-                data = data[:,excess:]
-            length = data.shape[1]
-            data = np.split(data, length // self.data_length, axis=1)
-            
-            # Add to inputs and outputs
-            for split in data:
-                inputs.append(split)
+                inputs.append(inp)
                 targets.append(dataset[1][i])
 
         targets = np.array(targets)
