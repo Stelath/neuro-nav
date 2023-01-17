@@ -51,6 +51,6 @@ class BCIDataset(Dataset):
         return len(self.inputs)
 
     def __getitem__(self, idx):
-        sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': one_hot(torch.tensor(self.targets[idx], dtype=torch.int64), num_classes=3)}
+        sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': one_hot(torch.tensor(self.targets[idx], dtype=torch.int64), num_classes=3).type(torch.float32)}
 
         return sample
