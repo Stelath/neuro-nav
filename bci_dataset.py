@@ -23,7 +23,7 @@ class BCIDataset(Dataset):
         DataFilter.remove_environmental_noise(data, sr, NoiseTypes.SIXTY.value) # Americas wires run at 60Hz
 
     def format_dataset(self, dataset):
-        hz = 256
+        hz = 256 * 2
         inputs = []
         targets = []
         for i in range(len(dataset[0])):
