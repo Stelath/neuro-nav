@@ -10,10 +10,15 @@ from torch.nn.functional import one_hot
 
 
 class BCIDataset(Dataset):
-    def __init__(self, np_file, data_length=256):
+    def __init__(self, folder, data_length=256):
         self.data_length = data_length
         
-        self.dataset = np.load(np_file, allow_pickle=True)
+        files = os.listdir(folder)
+        self.dataset = np.load(os.path.join(folder, files[0]), allow_pickle=True)
+        files.pop(0)
+        for file_path in files:
+            self.dataset = np.concatenate((self.dataset, np.load(os.path.join(folder, file_path), allow_pickle=True)), axis=1)
+            
         self.inputs, self.targets = self.format_dataset(self.dataset)
 
     def filter_data(self, data):
@@ -23,7 +28,7 @@ class BCIDataset(Dataset):
         DataFilter.remove_environmental_noise(data, sr, NoiseTypes.SIXTY.value) # Americas wires run at 60Hz
 
     def format_dataset(self, dataset):
-        hz = 256 * 2
+        hz = self.data_length
         inputs = []
         targets = []
         for i in range(len(dataset[0])):
