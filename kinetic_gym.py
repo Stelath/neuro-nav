@@ -12,11 +12,13 @@ from scipy import fft
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
 from brainflow.data_filter import DataFilter, AggOperations, FilterTypes, WindowOperations, NoiseTypes
 
+import dearpygui.dearpygui as dpg
+
 
 class KineticEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self):
+    def __init__(self, render=False):
         super(KineticEnv, self).__init__()
         # Define action and observation space
         # They must be gym.spaces objects
@@ -36,6 +38,22 @@ class KineticEnv(gym.Env):
         self.real_direction = 0
         self.predicted_direction = 0
         self.past_predictions = []
+        
+        if render:
+            dpg.create_context()
+            dpg.create_viewport(title="Kinetic Gym", width=600, height=600)
+            dpg.setup_dearpygui()
+
+            with dpg.window(label="Kinetic Gym", tag="Primary Window"):
+                dpg.add_text("Hello world")
+                dpg.add_input_text(label="string")
+                dpg.add_slider_float(label="float")
+            
+            dpg.set_primary_window("Primary Window", True)
+            
+            dpg.show_viewport()
+            dpg.start_dearpygui()
+            dpg.destroy_context()
 
     def setup_eeg(self):
         board_id = BoardIds.CROWN_BOARD.value
@@ -108,6 +126,8 @@ class KineticEnv(gym.Env):
         return observation, reward, done, info
 
     def reset(self):
+        self.board.stop_stream()
+        self.board.start_stream()
         self.update_eeg()
         observation = self.filter_data()
         return observation  # reward, done, info can't be included
@@ -120,4 +140,4 @@ class KineticEnv(gym.Env):
         print(f"Accuracy: {np.mean(np.array(self.past_predictions)[-25:, 0] == np.array(self.past_predictions)[-25:, 1])}")
 
     def close(self):
-        self.board.stop_stream()
+        self.board.release_session()
