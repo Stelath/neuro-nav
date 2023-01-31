@@ -58,13 +58,13 @@ class BCIDataset(Dataset):
             # for k, channel in enumerate(data):
             #     inp[k] = fft.rfft(channel)[:-1]
             
-            inp = np.empty((8, self.hz//8, length))
-            for k, channel in enumerate(data):
-                inp[k] = signal.cwt(channel, signal.ricker, np.arange(1, self.hz//8 + 1))
+#             inp = np.empty((8, self.hz//8, length))
+#             for k, channel in enumerate(data):
+#                 inp[k] = signal.cwt(channel, signal.ricker, np.arange(1, self.hz//8 + 1))
             
-            # inp = inp.reshape((self.hz//8 * 8, length))
-            inputs.append(inp)
-            # inputs.append(data)
+#             inp = inp.reshape((self.hz//8 * 8, length))
+#             inputs.append(inp)
+            inputs.append(data)
             targets.append(dataset[1][2 * (i + skip)])
 
         targets = np.array(targets)
