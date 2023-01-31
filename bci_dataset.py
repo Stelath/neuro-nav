@@ -13,9 +13,10 @@ from torch.nn.functional import one_hot
 
 
 class BCIDataset(Dataset):
-    def __init__(self, folder, hz=256, seconds=1.75, one_hot=True):
+    def __init__(self, folder, hz=256, seconds=1, overlap=0.5, one_hot=True):
         self.hz = hz
         self.seconds = seconds
+        self.overlap = overlap
         
         self.one_hot = one_hot
         
@@ -23,12 +24,15 @@ class BCIDataset(Dataset):
         self.dataset = np.load(os.path.join(folder, files[0]), allow_pickle=True)
         files.pop(0)
         for file_path in files:
-            self.dataset = np.concatenate((self.dataset, np.load(os.path.join(folder, file_path), allow_pickle=True)), axis=1)
+            ds = np.load(os.path.join(folder, file_path), allow_pickle=True)
+            self.dataset[0] = np.concatenate((self.dataset[0], ds[0]), axis=1)
+            self.dataset[1] = np.concatenate((self.dataset[1], ds[1]), axis=0)
             
         self.inputs, self.targets = self.format_dataset(self.dataset)
+        self.rebalance()
 
     def filter_data(self, data):
-        DataFilter.perform_bandpass(data, self.hz, 1.0, 50.0, 4, FilterTypes.BUTTERWORTH.value, 0)
+        DataFilter.perform_bandpass(data, self.hz, 1.0, 100.0, 4, FilterTypes.BUTTERWORTH.value, 0)
         # DataFilter.remove_environmental_noise(data, self.hz, NoiseTypes.SIXTY.value)
         for i in range(60, 121, 60):
             b, a = signal.iirnotch(i, 10, self.hz)
@@ -40,26 +44,64 @@ class BCIDataset(Dataset):
         
         inputs = []
         targets = []
+        session = np.empty((8, len(dataset[0][0]) // 2))
         for i in range(len(dataset[0])):
-            session = np.empty((8, len(dataset[0][i][0]) // 2))
-            for j in range(len(dataset[0][i])):
-                self.filter_data(dataset[0][i][j])
-                session[j] = DataFilter.perform_downsampling(dataset[0][i][j], 2, AggOperations.MEAN.value)
+            self.filter_data(dataset[0][i])
+            session[i] = DataFilter.perform_downsampling(dataset[0][i], 2, AggOperations.MEAN.value)
+        
+        overlap = 1 - self.overlap
+        skip = int((hz // 2) * (self.seconds * overlap))
+        for i in range(0, len(session[0]) - int(hz / 2 * self.seconds), skip): # Gets 1 seconds of data and uses a 75% overlap
+            data = np.array(session[:, i:i + length])
             
-            for j in range(0, len(session[0]) - int(hz / 2 * self.seconds), int((hz // 2) * (self.seconds / 4))): # Gets 1.75 seconds of data and uses a 75% overlap
-                data = np.array(session[:, j:j + length])
-                
-                inp = np.empty((8, length // 2))
-                for k, channel in enumerate(data):
-                    inp[k] = fft.rfft(channel)[:-1]
+            # inp = np.empty((8, length // 2))
+            # for k, channel in enumerate(data):
+            #     inp[k] = fft.rfft(channel)[:-1]
             
-                inputs.append(inp)
-                targets.append(dataset[1][i])
+            inp = np.empty((8, self.hz//2, length))
+            for k, channel in enumerate(data):
+                inp[k] = signal.cwt(channel, signal.ricker, np.arange(1, self.hz//2 + 1))
+        
+            inputs.append(inp)
+            # inputs.append(data)
+            targets.append(dataset[1][2 * (i + skip)])
 
         targets = np.array(targets)
         inputs = np.array(inputs)
         
         return inputs, targets
+
+    def rebalance(self):
+        left = 0
+        center = 0
+        right = 0
+        for target in self.targets:
+            if target == 0:
+                left += 1
+            elif target == 1:
+                center += 1
+            elif target == 2:
+                right += 1
+
+        lowest = min(left, center, right)
+        # Print left center right and lowest
+        
+        for i in range(len(self.inputs) - (left + center + right) + 3 * lowest):
+            if left > lowest and self.targets[i] == 0:
+                self.inputs = np.delete(self.inputs, i, axis=0)
+                self.targets = np.delete(self.targets, i, axis=0)
+                i -= 1
+                left -= 1
+            elif center > lowest and self.targets[i] == 1:
+                self.inputs = np.delete(self.inputs, i, axis=0)
+                self.targets = np.delete(self.targets, i, axis=0)
+                i -= 1
+                center -= 1
+            elif right > lowest and self.targets[i] == 2:
+                self.inputs = np.delete(self.inputs, i, axis=0)
+                self.targets = np.delete(self.targets, i, axis=0)
+                i -= 1
+                right -= 1
 
     def __len__(self):
         return len(self.inputs)

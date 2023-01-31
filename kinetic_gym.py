@@ -24,7 +24,7 @@ class KineticEnv(gym.Env):
         # They must be gym.spaces objects
         self.action_space = spaces.Discrete(3)
         self.observation_space = spaces.Box(low=-8000, high=8000,
-                                            shape=(8, 64), dtype=np.float32)
+                                            shape=(8, 128), dtype=np.float32)
 
         sdl2.SDL_Init(sdl2.SDL_INIT_JOYSTICK)
         self.joystick = sdl2.SDL_JoystickOpen(0)
@@ -88,7 +88,7 @@ class KineticEnv(gym.Env):
         
         data = np.average(data.reshape(8, -1, 2), axis=2)
         
-        data = fft.rfft(data, axis=1)[:, :-1]
+        # data = fft.rfft(data, axis=1)[:, :-1]
         return data
 
     def get_direction(self):
@@ -108,7 +108,7 @@ class KineticEnv(gym.Env):
         time.sleep(0.1)
         
         # WARNING: A bit offset because of drift, should be 0.2 and -0.2 for the deadzone
-        self.real_direction = 2 if x / 32768 > 0.3 else 0 if x / 32768 < -0.1 else 1
+        self.real_direction = 2 if x / 32768 > 0.2 else 0 if x / 32768 < -0.2 else 1
         self.predicted_direction = action
         self.past_predictions.append([self.real_direction, action])
         
