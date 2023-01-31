@@ -12,13 +12,11 @@ from scipy import fft
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, LogLevels, BoardIds
 from brainflow.data_filter import DataFilter, AggOperations, FilterTypes, WindowOperations, NoiseTypes
 
-import dearpygui.dearpygui as dpg
-
 
 class KineticEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, render=False):
+    def __init__(self):
         super(KineticEnv, self).__init__()
         # Define action and observation space
         # They must be gym.spaces objects
@@ -39,21 +37,6 @@ class KineticEnv(gym.Env):
         self.predicted_direction = 0
         self.past_predictions = []
         
-        if render:
-            dpg.create_context()
-            dpg.create_viewport(title="Kinetic Gym", width=600, height=600)
-            dpg.setup_dearpygui()
-
-            with dpg.window(label="Kinetic Gym", tag="Primary Window"):
-                dpg.add_text("Hello world")
-                dpg.add_input_text(label="string")
-                dpg.add_slider_float(label="float")
-            
-            dpg.set_primary_window("Primary Window", True)
-            
-            dpg.show_viewport()
-            dpg.start_dearpygui()
-            dpg.destroy_context()
 
     def setup_eeg(self):
         board_id = BoardIds.CROWN_BOARD.value
@@ -72,7 +55,7 @@ class KineticEnv(gym.Env):
         new_data = self.board.get_board_data()[1:9]
         if(new_data.shape[1] <= 0):
             return
-        np.roll(self.raw_data, -new_data.shape[1], axis=1)
+        self.raw_data = np.roll(self.raw_data, -new_data.shape[1], axis=1)
         self.raw_data[:, -new_data.shape[1]:] = new_data[:, -256:]
         
     def filter_data(self):

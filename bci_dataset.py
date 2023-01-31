@@ -109,7 +109,7 @@ class BCIDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.one_hot:
-            sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': one_hot(torch.tensor(self.targets[idx], dtype=torch.int64), num_classes=3).type(torch.float32)}
+            sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': one_hot(torch.tensor(self.targets[idx], dtype=torch.int64), num_classes=5).type(torch.float32)}
         else:
             sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': torch.tensor(self.targets[idx], dtype=torch.int64)}
 
