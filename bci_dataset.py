@@ -29,14 +29,14 @@ class BCIDataset(Dataset):
             self.dataset[1] = np.concatenate((self.dataset[1], ds[1]), axis=0)
             
         self.inputs, self.targets = self.format_dataset(self.dataset)
-        self.rebalance()
+        # self.rebalance()
 
     def filter_data(self, data):
-        DataFilter.perform_bandpass(data, self.hz, 1.0, 100.0, 4, FilterTypes.BUTTERWORTH.value, 0)
-        # DataFilter.remove_environmental_noise(data, self.hz, NoiseTypes.SIXTY.value)
-        for i in range(60, 121, 60):
-            b, a = signal.iirnotch(i, 10, self.hz)
-            data[:] = signal.filtfilt(b, a, data) # Americas wires run at 60Hz; Because wires run at 60Hz, there is a 120Hz harmonic
+        DataFilter.perform_bandpass(data, self.hz//2, 1.0, 50.0, 4, FilterTypes.BUTTERWORTH.value, 0)
+        DataFilter.remove_environmental_noise(data, self.hz//2, NoiseTypes.SIXTY.value)
+        # for i in range(60, 121, 60):
+        #     b, a = signal.iirnotch(i, 10, self.hz)
+        #     data[:] = signal.filtfilt(b, a, data) # Americas wires run at 60Hz; Because wires run at 60Hz, there is a 120Hz harmonic
 
     def format_dataset(self, dataset):
         hz = self.hz
@@ -46,8 +46,9 @@ class BCIDataset(Dataset):
         targets = []
         session = np.empty((8, len(dataset[0][0]) // 2))
         for i in range(len(dataset[0])):
-            self.filter_data(dataset[0][i])
             session[i] = DataFilter.perform_downsampling(dataset[0][i], 2, AggOperations.MEAN.value)
+            self.filter_data(session[i])
+        session = session[:, 512:]
         
         overlap = 1 - self.overlap
         skip = int((hz // 2) * (self.seconds * overlap))
@@ -109,8 +110,8 @@ class BCIDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.one_hot:
-            sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': one_hot(torch.tensor(self.targets[idx], dtype=torch.int64), num_classes=5).type(torch.float32)}
+            sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': one_hot(torch.tensor(self.targets[idx], dtype=torch.int64), num_classes=3).type(torch.float32)}
         else:
-            sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': torch.tensor(self.targets[idx], dtype=torch.int64)}
+            sample = {'inputs': torch.tensor(self.inputs[idx], dtype=torch.float32), 'targets': torch.tensor(self.targets[idx], dtype=torch.float32)}
 
         return sample

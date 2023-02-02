@@ -31,7 +31,7 @@ class KineticEnv(gym.Env):
         self.hz = 256
         time.sleep(3)
         
-        self.raw_data = np.zeros((8, 256), dtype=np.float64)
+        self.raw_data = np.zeros((8, 512), dtype=np.float64)
         
         self.real_direction = 0
         self.predicted_direction = 0
@@ -56,21 +56,20 @@ class KineticEnv(gym.Env):
         if(new_data.shape[1] <= 0):
             return
         self.raw_data = np.roll(self.raw_data, -new_data.shape[1], axis=1)
-        self.raw_data[:, -new_data.shape[1]:] = new_data[:, -256:]
+        self.raw_data[:, -new_data.shape[1] if new_data.shape[1] < 512 else -512:] = new_data[:, -512:]
         
     def filter_data(self):
         data = np.copy(self.raw_data)
         # b, a = signal.butter(4, [1.0, 128.0], btype='bandpass', analog=True)
         # data = signal.filtfilt(b, a, data)
-        for i in range(len(data)):
-            DataFilter.perform_bandpass(data[i], self.hz, 1.0, 50.0, 4, FilterTypes.BUTTERWORTH.value, 0)
+        # for i in range(len(data)):
+        #     DataFilter.perform_bandpass(data[i], self.hz, 1.0, 50.0, 4, FilterTypes.BUTTERWORTH.value, 0)
         
         for i in range(60, 121, 60):
             b, a = signal.iirnotch(i, 10, self.hz)
             data = signal.filtfilt(b, a, data) # Americas wires run at 60Hz; Because wires run at 60Hz, there is a 120Hz harmonic
         
         data = np.average(data.reshape(8, -1, 2), axis=2)
-        
         # data = fft.rfft(data, axis=1)[:, :-1]
         return data
 
@@ -101,7 +100,7 @@ class KineticEnv(gym.Env):
             reward = -1
         
         self.update_eeg()
-        observation = torch.from_numpy(self.filter_data()).type(torch.float32)
+        observation = torch.from_numpy(self.filter_data()[:, 128:]).type(torch.float32)
         
         done = False
         info = {}
@@ -112,7 +111,7 @@ class KineticEnv(gym.Env):
         self.board.stop_stream()
         self.board.start_stream()
         self.update_eeg()
-        observation = self.filter_data()
+        observation = self.filter_data()[:, 128:]
         return observation  # reward, done, info can't be included
 
     def render(self, mode='human'):
